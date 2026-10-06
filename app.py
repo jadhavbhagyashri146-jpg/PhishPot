@@ -31,12 +31,16 @@ st.set_page_config(
 # =========================================================
 
 BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
+    os.path.abspath(__file__)
+)
+
+MODEL_PATH = os.path.join(
+    BASE_DIR,
+    "phishing_model.joblib"
 )
 
 DB_NAME = os.path.join(
     BASE_DIR,
-    "data",
     "phishpot.db"
 )
 
@@ -103,12 +107,6 @@ def hash_password(password):
 # LOAD MODEL
 # =========================================================
 
-
-MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "models",
-    "phishing_model.joblib"
-)
 
 @st.cache_resource
 def load_model():
@@ -818,16 +816,7 @@ def scan_page():
             reason_text = (
                 "No major suspicious URL indicators detected."
             )
-            st.link_button(
-                "🌐 Visit Website",
-                url
-            )
 
-            result_text = "Legitimate"
-
-            reason_text = (
-                "No major suspicious URL indicators detected."
-            )
 
         # =================================================
         # SAVE SCAN HISTORY
