@@ -661,20 +661,145 @@ def get_suspicious_reasons(url):
 # =========================================================
 
 def get_website_information(url):
+    """
+    Return basic information about a website.
+    Uses known website information as a fallback when
+    the website blocks automated requests or cannot be reached.
+    """
 
     try:
-
-        # Normalize URL
         url = normalize_url(url)
+        domain = get_domain(url).lower()
 
-        # Send request to website
+        # Remove common prefixes
+        clean_domain = domain.replace("www.", "")
+
+        # ---------------------------------------------------------
+        # KNOWN WEBSITE INFORMATION
+        # ---------------------------------------------------------
+
+        known_websites = {
+            "google.com": {
+                "name": "Google",
+                "type": "Search Engine",
+                "description": (
+                    "Google is a search engine used to find "
+                    "information on the web."
+                )
+            },
+
+            "bing.com": {
+                "name": "Bing",
+                "type": "Search Engine",
+                "description": (
+                    "Bing is a web search engine provided by Microsoft."
+                )
+            },
+
+            "yahoo.com": {
+                "name": "Yahoo",
+                "type": "Search Engine / Web Portal",
+                "description": (
+                    "Yahoo is a web portal that provides search, "
+                    "news, email and other online services."
+                )
+            },
+
+            "youtube.com": {
+                "name": "YouTube",
+                "type": "Entertainment / Video",
+                "description": (
+                    "YouTube is an online video-sharing platform "
+                    "where users can watch and share videos."
+                )
+            },
+
+            "whatsapp.com": {
+                "name": "WhatsApp",
+                "type": "Messaging / Social Media",
+                "description": (
+                    "WhatsApp is a messaging platform used for "
+                    "text messages, voice calls and video calls."
+                )
+            },
+
+            "instagram.com": {
+                "name": "Instagram",
+                "type": "Social Media",
+                "description": (
+                    "Instagram is a social media platform for "
+                    "sharing photos, videos and messages."
+                )
+            },
+
+            "facebook.com": {
+                "name": "Facebook",
+                "type": "Social Media",
+                "description": (
+                    "Facebook is a social media platform used to "
+                    "connect with people and share content."
+                )
+            },
+
+            "linkedin.com": {
+                "name": "LinkedIn",
+                "type": "Professional Networking",
+                "description": (
+                    "LinkedIn is a professional networking platform "
+                    "used for careers, jobs and professional connections."
+                )
+            },
+
+            "amazon.com": {
+                "name": "Amazon",
+                "type": "E-Commerce",
+                "description": (
+                    "Amazon is an e-commerce platform where users "
+                    "can browse and purchase products online."
+                )
+            },
+
+            "microsoft.com": {
+                "name": "Microsoft",
+                "type": "Technology",
+                "description": (
+                    "Microsoft is a technology company providing "
+                    "software, cloud services and digital products."
+                )
+            },
+
+            "github.com": {
+                "name": "GitHub",
+                "type": "Software Development",
+                "description": (
+                    "GitHub is a platform for hosting, sharing and "
+                    "collaborating on software development projects."
+                )
+            }
+        }
+
+        # ---------------------------------------------------------
+        # CHECK KNOWN WEBSITE
+        # ---------------------------------------------------------
+
+        for known_domain, info in known_websites.items():
+
+            if (
+                clean_domain == known_domain
+                or clean_domain.endswith("." + known_domain)
+            ):
+                return info
+
+        # ---------------------------------------------------------
+        # TRY TO GET WEBSITE INFORMATION
+        # ---------------------------------------------------------
+
         response = requests.get(
             url,
             timeout=5,
             headers={
                 "User-Agent": (
-                    "Mozilla/5.0 "
-                    "(Windows NT 10.0; Win64; x64) "
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 "
                     "(KHTML, like Gecko) "
                     "Chrome/120.0 Safari/537.36"
@@ -682,13 +807,164 @@ def get_website_information(url):
             }
         )
 
-        # Parse webpage
-        parser = PageParser()
+        html = response.text[:100000]
 
-        parser.feed(
-            response.text[:100000]
+        # ---------------------------------------------------------
+        # WEBSITE NAME
+        # ---------------------------------------------------------
+
+        website_name = ""
+
+        title_match = re.search(
+            r"<title[^>]*>(.*?)</title>",
+            html,
+            re.IGNORECASE | re.DOTALL
         )
 
+        if title_match:
+            website_name = re.sub(
+                r"\s+",
+                " ",
+                title_match.group(1)
+            ).strip()
+
+        # Ignore useless/error titles
+        invalid_titles = {
+            "",
+            "error",
+            "404",
+            "403 forbidden",
+            "access denied",
+            "page not found"
+        }
+
+        if website_name.lower() in invalid_titles:
+            website_name = ""
+
+        if not website_name:
+            website_name = clean_domain.split(".")[0].title()
+
+        # ---------------------------------------------------------
+        # WEBSITE TYPE
+        # ---------------------------------------------------------
+
+        if any(
+            word in clean_domain
+            for word in [
+                "google",
+                "bing",
+                "yahoo",
+                "duckduckgo"
+            ]
+        ):
+            website_type = "Search Engine"
+
+        elif any(
+            word in clean_domain
+            for word in [
+                "facebook",
+                "instagram",
+                "twitter",
+                "x.com",
+                "linkedin",
+                "reddit",
+                "tiktok"
+            ]
+        ):
+            website_type = "Social Media"
+
+        elif any(
+            word in clean_domain
+            for word in [
+                "youtube",
+                "netflix",
+                "spotify"
+            ]
+        ):
+            website_type = "Entertainment / Media"
+
+        elif any(
+            word in clean_domain
+            for word in [
+                "amazon",
+                "flipkart",
+                "ebay",
+                "shop"
+            ]
+        ):
+            website_type = "E-Commerce"
+
+        elif any(
+            word in clean_domain
+            for word in [
+                "wikipedia",
+                "britannica"
+            ]
+        ):
+            website_type = "Information / Knowledge"
+
+        else:
+            website_type = "Website"
+
+        # ---------------------------------------------------------
+        # WEBSITE DESCRIPTION
+        # ---------------------------------------------------------
+
+        description = ""
+
+        description_match = re.search(
+            r'<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']',
+            html,
+            re.IGNORECASE | re.DOTALL
+        )
+
+        if description_match:
+            description = re.sub(
+                r"\s+",
+                " ",
+                description_match.group(1)
+            ).strip()
+
+        if not description:
+            description = (
+                f"{website_name} is a {website_type.lower()} "
+                "available on the internet."
+            )
+
+        return {
+            "name": website_name,
+            "type": website_type,
+            "description": description
+        }
+
+    except Exception:
+        # ---------------------------------------------------------
+        # FINAL FALLBACK
+        # ---------------------------------------------------------
+
+        try:
+            domain = get_domain(url).lower()
+            clean_domain = domain.replace("www.", "")
+
+            fallback_name = clean_domain.split(".")[0].title()
+
+            return {
+                "name": fallback_name,
+                "type": "Website",
+                "description": (
+                    f"{fallback_name} is a website available "
+                    "on the internet."
+                )
+            }
+
+        except Exception:
+            return {
+                "name": "Unknown Website",
+                "type": "Website",
+                "description": (
+                    "Website information could not be retrieved."
+                )
+            }
         # -------------------------------------------------
         # WEBSITE NAME
         # -------------------------------------------------
