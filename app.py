@@ -453,7 +453,7 @@ def authentication_page():
 def home_page():
 
     st.markdown(
-        '<div class="main-title">🛡️ PhishPot</div>',
+        '<div class="main-title">🐟 PhishPot 🐟</div>',
         unsafe_allow_html=True
     )
 
